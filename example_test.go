@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/companyinfo/ptr"
+	"go.companyinfo.dev/ptr"
 )
 
 // Example demonstrates basic usage of the ptr package
