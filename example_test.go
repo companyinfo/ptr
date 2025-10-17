@@ -224,3 +224,94 @@ func Example_timeAndDuration() {
 	// Output:
 	// Event: {"name":"API Call","timestamp":"2024-01-01T00:00:00Z","timeout":30000000000}
 }
+
+// Example_sliceHelpers demonstrates using type-specific slice conversion functions
+func Example_sliceHelpers() {
+	// Convert slice of values to slice of pointers
+	numbers := []int{1, 2, 3, 4, 5}
+	numberPtrs := ptr.IntSlice(numbers)
+	fmt.Printf("Number of pointers: %d\n", len(numberPtrs))
+	fmt.Printf("First value: %d\n", *numberPtrs[0])
+
+	// Convert slice of pointers back to values
+	// Nil pointers become zero values
+	mixedPtrs := []*string{ptr.String("hello"), nil, ptr.String("world")}
+	values := ptr.ToStringSlice(mixedPtrs)
+	fmt.Printf("Values: %v\n", values)
+
+	// Works with booleans
+	flags := []bool{true, false, true}
+	flagPtrs := ptr.BoolSlice(flags)
+	fmt.Printf("All flags have pointers: %t\n", len(flagPtrs) == len(flags))
+
+	// Output:
+	// Number of pointers: 5
+	// First value: 1
+	// Values: [hello  world]
+	// All flags have pointers: true
+}
+
+// Example_mapHelpers demonstrates using type-specific map conversion functions
+func Example_mapHelpers() {
+	// Convert map of values to map of pointers
+	config := map[string]int{
+		"timeout":    30,
+		"retries":    3,
+		"maxWorkers": 10,
+	}
+	configPtrs := ptr.IntMap(config)
+	fmt.Printf("Timeout pointer: %d\n", *configPtrs["timeout"])
+
+	// Convert map of pointers back to values
+	// Nil pointers become zero values
+	settings := map[string]*string{
+		"host":   ptr.String("localhost"),
+		"port":   ptr.String("8080"),
+		"scheme": nil, // Will become empty string
+	}
+	settingValues := ptr.ToStringMap(settings)
+	fmt.Printf("Host: %s, Port: %s, Scheme: %q\n",
+		settingValues["host"],
+		settingValues["port"],
+		settingValues["scheme"])
+
+	// Works with floats
+	prices := map[string]float64{
+		"apple":  1.50,
+		"banana": 0.75,
+		"orange": 2.00,
+	}
+	pricePtrs := ptr.Float64Map(prices)
+	fmt.Printf("Apple price: $%.2f\n", *pricePtrs["apple"])
+
+	// Output:
+	// Timeout pointer: 30
+	// Host: localhost, Port: 8080, Scheme: ""
+	// Apple price: $1.50
+}
+
+// Example_bulkOperations demonstrates using Map/Slice helpers for bulk data operations
+func Example_bulkOperations() {
+	// Prepare prices as pointers for optional pricing
+	priceValues := map[string]float64{
+		"1": 19.99,
+		"2": 29.99,
+		"3": 39.99,
+	}
+	prices := ptr.Float64Map(priceValues)
+
+	// Prepare product IDs
+	ids := []int{1, 2, 3, 4, 5}
+	idPtrs := ptr.IntSlice(ids)
+
+	fmt.Printf("Created %d price pointers\n", len(prices))
+	fmt.Printf("Created %d ID pointers\n", len(idPtrs))
+	fmt.Printf("Sample price: $%.2f\n", *prices["1"])
+	fmt.Printf("Sample ID: %d\n", *idPtrs[0])
+
+	// Output:
+	// Created 3 price pointers
+	// Created 5 ID pointers
+	// Sample price: $19.99
+	// Sample ID: 1
+}

@@ -13,7 +13,8 @@ This package solves common pointer-related challenges in Go:
 - Creating pointers from literals and constants
 - Safe dereferencing without nil panics
 - Optional field handling in APIs and configuration
-- Batch pointer operations on slices
+- Batch pointer operations on slices and maps
+- Type-safe conversions for all Go built-in types
 
 **Key Features:**
 
@@ -31,8 +32,11 @@ This package solves common pointer-related challenges in Go:
 - [API Documentation](#api-documentation)
   - [Generic Functions](#generic-functions)
   - [Slice Operations](#slice-operations)
+  - [Map Operations](#map-operations)
   - [Utility Functions](#utility-functions)
   - [Type-Specific Functions](#type-specific-functions)
+  - [Type-Specific Slice Functions](#type-specific-slice-functions)
+  - [Type-Specific Map Functions](#type-specific-map-functions)
 - [Practical Examples](#practical-examples)
 - [API Reference](#api-reference)
 - [Performance](#performance)
@@ -251,6 +255,34 @@ values := ptr.FromSlice(pointers)
 fmt.Println(values)  // [1 0 3] - nil becomes zero value
 ```
 
+### Map Operations
+
+#### `ToMap[T any](values map[string]T) map[string]*T`
+
+Convert a map with value type T to a map with pointer value type *T:
+
+```go
+config := map[string]int{
+    "timeout": 30,
+    "retries": 3,
+}
+configPtrs := ptr.ToMap(config)
+// map[string]*int with pointer values
+```
+
+#### `FromMap[T any](ptrs map[string]*T) map[string]T`
+
+Convert a map with pointer value type *T to a map with value type T:
+
+```go
+settings := map[string]*string{
+    "host": ptr.String("localhost"),
+    "port": nil,
+}
+values := ptr.FromMap(settings)
+fmt.Println(values)  // map[host:localhost port:] - nil becomes empty string
+```
+
 ### Utility Functions
 
 #### `Equal[T comparable](a, b *T) bool`
@@ -391,6 +423,180 @@ val64 := ptr.ToComplex64(c64)  // complex64 value
 c128 := ptr.Complex128(3 + 4i)
 val128 := ptr.ToComplex128(c128)  // complex128 value
 ```
+
+### Type-Specific Slice Functions
+
+For better IDE autocomplete and convenience, type-specific slice conversion functions are available for all common types:
+
+#### String Slices
+
+```go
+names := []string{"Alice", "Bob", "Charlie"}
+namePtrs := ptr.StringSlice(names)
+// []*string with pointers to each name
+
+mixed := []*string{ptr.String("Alice"), nil, ptr.String("Charlie")}
+values := ptr.ToStringSlice(mixed)
+fmt.Println(values)  // [Alice  Charlie] - nil becomes empty string
+```
+
+#### Integer Slices
+
+```go
+// Works with all integer types: Int, Int8, Int16, Int32, Int64
+ages := []int{25, 30, 35}
+agePtrs := ptr.IntSlice(ages)
+
+ids := []int64{1001, 1002, 1003}
+idPtrs := ptr.Int64Slice(ids)
+
+// Convert back to values
+values := ptr.ToIntSlice(agePtrs)  // [25 30 35]
+```
+
+#### Other Numeric Type Slices
+
+```go
+// Unsigned integers: Uint, Uint8, Uint16, Uint32, Uint64
+counts := []uint{1, 2, 3}
+countPtrs := ptr.UintSlice(counts)
+
+// Floats: Float32, Float64
+prices := []float64{19.99, 29.99, 39.99}
+pricePtrs := ptr.Float64Slice(prices)
+
+// Bytes
+data := []byte{0x01, 0x02, 0x03}
+dataPtrs := ptr.ByteSlice(data)
+```
+
+#### Boolean Slices
+
+```go
+flags := []bool{true, false, true}
+flagPtrs := ptr.BoolSlice(flags)
+
+values := ptr.ToBoolSlice(flagPtrs)  // [true false true]
+```
+
+#### Time Type Slices
+
+```go
+// Time slices
+timestamps := []time.Time{time.Now(), time.Now().Add(time.Hour)}
+timePtrs := ptr.TimeSlice(timestamps)
+
+// Duration slices
+durations := []time.Duration{time.Second, time.Minute, time.Hour}
+durationPtrs := ptr.DurationSlice(durations)
+```
+
+**Available slice functions for all types:**
+
+- `IntSlice`, `Int8Slice`, `Int16Slice`, `Int32Slice`, `Int64Slice`
+- `UintSlice`, `Uint8Slice`, `Uint16Slice`, `Uint32Slice`, `Uint64Slice`
+- `Float32Slice`, `Float64Slice`
+- `BoolSlice`, `ByteSlice`, `StringSlice`
+- `TimeSlice`, `DurationSlice`
+
+And their corresponding `To*Slice` functions for converting back to values.
+
+### Type-Specific Map Functions
+
+Type-specific map conversion functions for converting between `map[string]T` and `map[string]*T`:
+
+#### String Maps
+
+```go
+settings := map[string]string{
+    "host": "localhost",
+    "port": "8080",
+}
+settingPtrs := ptr.StringMap(settings)
+// map[string]*string with pointer values
+
+values := ptr.ToStringMap(settingPtrs)
+// Back to map[string]string
+```
+
+#### Integer Maps
+
+```go
+// Works with all integer types: Int, Int8, Int16, Int32, Int64
+config := map[string]int{
+    "timeout":  30,
+    "retries":  3,
+    "maxConns": 100,
+}
+configPtrs := ptr.IntMap(config)
+
+// With nil values
+mixed := map[string]*int{
+    "timeout": ptr.Int(30),
+    "retries": nil,  // Will become 0
+}
+values := ptr.ToIntMap(mixed)  // map[string]int
+```
+
+#### Other Numeric Type Maps
+
+```go
+// Unsigned integers: Uint, Uint8, Uint16, Uint32, Uint64
+limits := map[string]uint64{
+    "maxSize":  1024000,
+    "maxFiles": 100,
+}
+limitPtrs := ptr.Uint64Map(limits)
+
+// Floats: Float32, Float64
+prices := map[string]float64{
+    "basic":    9.99,
+    "premium":  19.99,
+    "enterprise": 99.99,
+}
+pricePtrs := ptr.Float64Map(prices)
+```
+
+#### Boolean Maps
+
+```go
+features := map[string]bool{
+    "caching":    true,
+    "monitoring": true,
+    "debug":      false,
+}
+featurePtrs := ptr.BoolMap(features)
+
+values := ptr.ToBoolMap(featurePtrs)
+```
+
+#### Time Type Maps
+
+```go
+// Time maps
+events := map[string]time.Time{
+    "created":  time.Now(),
+    "updated":  time.Now(),
+}
+eventPtrs := ptr.TimeMap(events)
+
+// Duration maps
+timeouts := map[string]time.Duration{
+    "read":  30 * time.Second,
+    "write": 10 * time.Second,
+}
+timeoutPtrs := ptr.DurationMap(timeouts)
+```
+
+**Available map functions for all types:**
+
+- `IntMap`, `Int8Map`, `Int16Map`, `Int32Map`, `Int64Map`
+- `UintMap`, `Uint8Map`, `Uint16Map`, `Uint32Map`, `Uint64Map`
+- `Float32Map`, `Float64Map`
+- `BoolMap`, `ByteMap`, `StringMap`
+- `TimeMap`, `DurationMap`
+
+And their corresponding `To*Map` functions for converting back to value maps.
 
 ## Practical Examples
 
@@ -621,7 +827,7 @@ req := UpdateUserRequest{
 ```go
 // Convert user IDs to pointers for JSON
 userIDs := []int64{1001, 1002, 1003}
-idPointers := ptr.ToSlice(userIDs)
+idPointers := ptr.Int64Slice(userIDs)
 
 // Process results
 results := []*ProcessResult{
@@ -632,6 +838,60 @@ results := []*ProcessResult{
 
 // Extract values (nil results become zero values)
 resultValues := ptr.FromSlice(results)
+```
+
+### Bulk Data Conversion
+
+Working with bulk data using type-specific helpers:
+
+```go
+// Convert multiple prices at once
+priceList := []float64{9.99, 19.99, 29.99, 39.99}
+pricePtrs := ptr.Float64Slice(priceList)
+
+// Use in API response
+type ProductList struct {
+    Prices []*float64 `json:"prices,omitempty"`
+}
+
+// Convert configuration maps
+envVars := map[string]string{
+    "DATABASE_HOST": "localhost",
+    "DATABASE_PORT": "5432",
+    "API_KEY":       "secret",
+}
+envVarPtrs := ptr.StringMap(envVars)
+
+// Process and convert back
+processedVars := processConfig(envVarPtrs)
+finalConfig := ptr.ToStringMap(processedVars)
+```
+
+### API Response Transformation
+
+```go
+// Transform API response data
+type APIUser struct {
+    ID    int64
+    Name  string
+    Roles []string
+}
+
+// Convert roles to pointers for optional field handling
+users := []APIUser{
+    {ID: 1, Name: "Alice", Roles: []string{"admin", "user"}},
+    {ID: 2, Name: "Bob", Roles: []string{"user"}},
+}
+
+// Extract IDs as pointers
+ids := make([]int64, len(users))
+for i, u := range users {
+    ids[i] = u.ID
+}
+idPtrs := ptr.Int64Slice(ids)
+
+// Use in bulk operations
+results := bulkFetchUserData(idPtrs)
 ```
 
 ### Data Transformation
@@ -675,6 +935,13 @@ for i, name := range names {
 | `ToSlice[T any](values []T) []*T` | Convert slice of values to slice of pointers |
 | `FromSlice[T any](ptrs []*T) []T` | Convert slice of pointers to slice of values |
 
+### Map Function Reference
+
+| Function | Description |
+|----------|-------------|
+| `ToMap[T any](values map[string]T) map[string]*T` | Convert map of values to map of pointer values |
+| `FromMap[T any](ptrs map[string]*T) map[string]T` | Convert map of pointer values to map of values |
+
 ### Type-Specific Function Reference
 
 #### Common Type Functions
@@ -712,6 +979,54 @@ for i, name := range names {
 | time.Duration | `Duration(v time.Duration) *time.Duration` | `ToDuration(p *time.Duration) time.Duration` |
 | complex64 | `Complex64(v complex64) *complex64` | `ToComplex64(p *complex64) complex64` |
 | complex128 | `Complex128(v complex128) *complex128` | `ToComplex128(p *complex128) complex128` |
+
+### Type-Specific Slice Function Reference
+
+For each type, both slice conversion functions are available:
+
+| Type | To Slice | From Slice |
+|------|----------|------------|
+| string | `StringSlice([]string) []*string` | `ToStringSlice([]*string) []string` |
+| int | `IntSlice([]int) []*int` | `ToIntSlice([]*int) []int` |
+| int8 | `Int8Slice([]int8) []*int8` | `ToInt8Slice([]*int8) []int8` |
+| int16 | `Int16Slice([]int16) []*int16` | `ToInt16Slice([]*int16) []int16` |
+| int32 | `Int32Slice([]int32) []*int32` | `ToInt32Slice([]*int32) []int32` |
+| int64 | `Int64Slice([]int64) []*int64` | `ToInt64Slice([]*int64) []int64` |
+| uint | `UintSlice([]uint) []*uint` | `ToUintSlice([]*uint) []uint` |
+| uint8 | `Uint8Slice([]uint8) []*uint8` | `ToUint8Slice([]*uint8) []uint8` |
+| uint16 | `Uint16Slice([]uint16) []*uint16` | `ToUint16Slice([]*uint16) []uint16` |
+| uint32 | `Uint32Slice([]uint32) []*uint32` | `ToUint32Slice([]*uint32) []uint32` |
+| uint64 | `Uint64Slice([]uint64) []*uint64` | `ToUint64Slice([]*uint64) []uint64` |
+| float32 | `Float32Slice([]float32) []*float32` | `ToFloat32Slice([]*float32) []float32` |
+| float64 | `Float64Slice([]float64) []*float64` | `ToFloat64Slice([]*float64) []float64` |
+| bool | `BoolSlice([]bool) []*bool` | `ToBoolSlice([]*bool) []bool` |
+| byte | `ByteSlice([]byte) []*byte` | `ToByteSlice([]*byte) []byte` |
+| time.Time | `TimeSlice([]time.Time) []*time.Time` | `ToTimeSlice([]*time.Time) []time.Time` |
+| time.Duration | `DurationSlice([]time.Duration) []*time.Duration` | `ToDurationSlice([]*time.Duration) []time.Duration` |
+
+### Type-Specific Map Function Reference
+
+For each type, both map conversion functions are available (all maps use `string` keys):
+
+| Type | To Map | From Map |
+|------|--------|----------|
+| string | `StringMap(map[string]string) map[string]*string` | `ToStringMap(map[string]*string) map[string]string` |
+| int | `IntMap(map[string]int) map[string]*int` | `ToIntMap(map[string]*int) map[string]int` |
+| int8 | `Int8Map(map[string]int8) map[string]*int8` | `ToInt8Map(map[string]*int8) map[string]int8` |
+| int16 | `Int16Map(map[string]int16) map[string]*int16` | `ToInt16Map(map[string]*int16) map[string]int16` |
+| int32 | `Int32Map(map[string]int32) map[string]*int32` | `ToInt32Map(map[string]*int32) map[string]int32` |
+| int64 | `Int64Map(map[string]int64) map[string]*int64` | `ToInt64Map(map[string]*int64) map[string]int64` |
+| uint | `UintMap(map[string]uint) map[string]*uint` | `ToUintMap(map[string]*uint) map[string]uint` |
+| uint8 | `Uint8Map(map[string]uint8) map[string]*uint8` | `ToUint8Map(map[string]*uint8) map[string]uint8` |
+| uint16 | `Uint16Map(map[string]uint16) map[string]*uint16` | `ToUint16Map(map[string]*uint16) map[string]uint16` |
+| uint32 | `Uint32Map(map[string]uint32) map[string]*uint32` | `ToUint32Map(map[string]*uint32) map[string]uint32` |
+| uint64 | `Uint64Map(map[string]uint64) map[string]*uint64` | `ToUint64Map(map[string]*uint64) map[string]uint64` |
+| float32 | `Float32Map(map[string]float32) map[string]*float32` | `ToFloat32Map(map[string]*float32) map[string]float32` |
+| float64 | `Float64Map(map[string]float64) map[string]*float64` | `ToFloat64Map(map[string]*float64) map[string]float64` |
+| bool | `BoolMap(map[string]bool) map[string]*bool` | `ToBoolMap(map[string]*bool) map[string]bool` |
+| byte | `ByteMap(map[string]byte) map[string]*byte` | `ToByteMap(map[string]*byte) map[string]byte` |
+| time.Time | `TimeMap(map[string]time.Time) map[string]*time.Time` | `ToTimeMap(map[string]*time.Time) map[string]time.Time` |
+| time.Duration | `DurationMap(map[string]time.Duration) map[string]*time.Duration` | `ToDurationMap(map[string]*time.Duration) map[string]time.Duration` |
 
 ## Performance
 
