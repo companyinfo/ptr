@@ -315,3 +315,318 @@ func Example_bulkOperations() {
 	// Sample price: $19.99
 	// Sample ID: 1
 }
+
+// Example_or demonstrates using Or for fallback values
+func Example_or() {
+	// Configuration with optional override
+	var userTheme *string // nil means use default
+	defaultTheme := ptr.String("dark")
+
+	selectedTheme := ptr.Or(userTheme, defaultTheme)
+	fmt.Printf("Using theme: %s\n", *selectedTheme)
+
+	// With user preference
+	userTheme = ptr.String("light")
+	selectedTheme = ptr.Or(userTheme, defaultTheme)
+	fmt.Printf("Using theme: %s\n", *selectedTheme)
+
+	// Output:
+	// Using theme: dark
+	// Using theme: light
+}
+
+// Example_nonZero demonstrates omitting zero values for APIs
+func Example_nonZero() {
+	// Creating API request with only non-zero values
+	type UpdateRequest struct {
+		Name  *string `json:"name,omitempty"`
+		Age   *int    `json:"age,omitempty"`
+		Email *string `json:"email,omitempty"`
+	}
+
+	// Only update name and email, leave age unchanged
+	req := UpdateRequest{
+		Name:  ptr.NonZero("Alice"),      // included
+		Age:   ptr.NonZero(0),            // nil, omitted from JSON
+		Email: ptr.NonZero("a@test.com"), // included
+	}
+
+	if req.Name != nil {
+		fmt.Printf("Name: %s\n", *req.Name)
+	}
+	if req.Age != nil {
+		fmt.Printf("Age: %d\n", *req.Age)
+	} else {
+		fmt.Println("Age: not set")
+	}
+	if req.Email != nil {
+		fmt.Printf("Email: %s\n", *req.Email)
+	}
+
+	// Output:
+	// Name: Alice
+	// Age: not set
+	// Email: a@test.com
+}
+
+// Example_filter demonstrates conditional pointer filtering
+func Example_filter() {
+	// Filter valid ages (18+)
+	ages := []*int{ptr.Int(15), ptr.Int(25), ptr.Int(17), ptr.Int(30)}
+
+	fmt.Println("Ages 18+:")
+	for _, age := range ages {
+		validAge := ptr.Filter(age, func(a int) bool { return a >= 18 })
+		if validAge != nil {
+			fmt.Printf("  %d\n", *validAge)
+		}
+	}
+
+	// Output:
+	// Ages 18+:
+	//   25
+	//   30
+}
+
+// Example_flatMap demonstrates chaining transformations
+func Example_flatMap() {
+	// Parse string to int, then check if even
+	nums := []string{"42", "invalid", "17", "100"}
+
+	fmt.Println("Even numbers:")
+	for _, s := range nums {
+		result := ptr.FlatMap(ptr.String(s), func(str string) *int {
+			// Try to parse
+			var val int
+			if _, err := fmt.Sscanf(str, "%d", &val); err == nil {
+				if val%2 == 0 {
+					return ptr.Int(val)
+				}
+			}
+			return nil
+		})
+		if result != nil {
+			fmt.Printf("  %d\n", *result)
+		}
+	}
+
+	// Output:
+	// Even numbers:
+	//   42
+	//   100
+}
+
+// Example_modify demonstrates in-place transformations
+func Example_modify() {
+	// Apply discount to price
+	price := ptr.Float64(100.0)
+
+	fmt.Printf("Original price: $%.2f\n", *price)
+
+	// Apply 20% discount
+	ptr.Modify(price, func(p float64) float64 {
+		return p * 0.8
+	})
+
+	fmt.Printf("Discounted price: $%.2f\n", *price)
+
+	// Output:
+	// Original price: $100.00
+	// Discounted price: $80.00
+}
+
+// Example_apply demonstrates side effects on pointer values
+func Example_apply() {
+	// Log configuration value if set
+	debugMode := ptr.Bool(true)
+
+	ptr.Apply(debugMode, func(enabled bool) {
+		if enabled {
+			fmt.Println("Debug mode is enabled")
+		}
+	})
+
+	// Won't print anything for nil
+	var traceMode *bool
+	executed := ptr.Apply(traceMode, func(enabled bool) {
+		fmt.Println("This won't print")
+	})
+
+	if !executed {
+		fmt.Println("Trace mode not configured")
+	}
+
+	// Output:
+	// Debug mode is enabled
+	// Trace mode not configured
+}
+
+// Example_isZero demonstrates checking for zero values
+func Example_isZero() {
+	// Check various pointer states
+	var nilPtr *int
+	zeroPtr := ptr.Int(0)
+	valuePtr := ptr.Int(42)
+
+	fmt.Printf("nil pointer is zero: %v\n", ptr.IsZero(nilPtr))
+	fmt.Printf("pointer to 0 is zero: %v\n", ptr.IsZero(zeroPtr))
+	fmt.Printf("pointer to 42 is zero: %v\n", ptr.IsZero(valuePtr))
+
+	// Useful for validation
+	emptyName := ptr.String("")
+	if ptr.IsZero(emptyName) {
+		fmt.Println("Name is required")
+	}
+
+	// Output:
+	// nil pointer is zero: true
+	// pointer to 0 is zero: true
+	// pointer to 42 is zero: false
+	// Name is required
+}
+
+// Example_swap demonstrates exchanging pointer values
+func Example_swap() {
+	// Swap two configuration values
+	primary := ptr.String("server-a")
+	backup := ptr.String("server-b")
+
+	fmt.Printf("Before: primary=%s, backup=%s\n", *primary, *backup)
+
+	ptr.Swap(primary, backup)
+
+	fmt.Printf("After: primary=%s, backup=%s\n", *primary, *backup)
+
+	// Output:
+	// Before: primary=server-a, backup=server-b
+	// After: primary=server-b, backup=server-a
+}
+
+// Example_functionalChaining demonstrates combining multiple operations
+func Example_functionalChaining() {
+	// Complex data transformation pipeline
+	input := ptr.String("  hello world  ")
+
+	// Chain: trim, uppercase, check length
+	result := ptr.Filter(
+		ptr.Map(input, func(s string) string {
+			// Trim spaces
+			trimmed := ""
+			start, end := 0, len(s)-1
+			for start <= end && s[start] == ' ' {
+				start++
+			}
+			for end >= start && s[end] == ' ' {
+				end--
+			}
+			if start <= end {
+				trimmed = s[start : end+1]
+			}
+			// Convert to uppercase
+			upper := ""
+			for _, c := range trimmed {
+				if c >= 'a' && c <= 'z' {
+					upper += string(c - 32)
+				} else {
+					upper += string(c)
+				}
+			}
+			return upper
+		}),
+		func(s string) bool { return len(s) > 5 },
+	)
+
+	if result != nil {
+		fmt.Printf("Result: %s\n", *result)
+	} else {
+		fmt.Println("Result: filtered out")
+	}
+
+	// Output:
+	// Result: HELLO WORLD
+}
+
+// Example_bind demonstrates using Bind for monadic operations
+func Example_bind() {
+	// Parse string to int with validation
+	parseInt := func(s string) *int {
+		var val int
+		if _, err := fmt.Sscanf(s, "%d", &val); err == nil {
+			return ptr.To(val)
+		}
+		return nil
+	}
+
+	result1 := ptr.Bind(ptr.To("42"), parseInt)
+	result2 := ptr.Bind(ptr.To("invalid"), parseInt)
+
+	if result1 != nil {
+		fmt.Printf("Parsed: %d\n", *result1)
+	}
+	if result2 == nil {
+		fmt.Println("Failed to parse")
+	}
+
+	// Output:
+	// Parsed: 42
+	// Failed to parse
+}
+
+// Example_getOr demonstrates configuration defaults
+func Example_getOr() {
+	type Config struct {
+		Timeout    *int
+		MaxRetries *int
+		Debug      *bool
+	}
+
+	config := Config{
+		Timeout: ptr.To(60),
+		// MaxRetries not set
+		Debug: ptr.To(true),
+	}
+
+	timeout := ptr.GetOr(config.Timeout, 30)
+	retries := ptr.GetOr(config.MaxRetries, 3)
+	debug := ptr.GetOr(config.Debug, false)
+
+	fmt.Printf("Timeout: %d\n", timeout)
+	fmt.Printf("Retries: %d\n", retries)
+	fmt.Printf("Debug: %v\n", debug)
+
+	// Output:
+	// Timeout: 60
+	// Retries: 3
+	// Debug: true
+}
+
+// Example_tableValidation demonstrates table-driven validation patterns
+func Example_tableValidation() {
+	tests := []struct {
+		age  *int
+		want string
+	}{
+		{ptr.To(25), "adult"},
+		{ptr.To(15), "minor"},
+		{ptr.To(18), "adult"},
+		{nil, "unknown"},
+	}
+
+	for _, tt := range tests {
+		result := ptr.Filter(tt.age, func(v int) bool { return v >= 18 })
+		status := "minor"
+		if result != nil {
+			status = "adult"
+		}
+		if tt.age == nil {
+			status = "unknown"
+		}
+		fmt.Printf("Age %v is %s\n", ptr.From(tt.age), status)
+	}
+
+	// Output:
+	// Age 25 is adult
+	// Age 15 is minor
+	// Age 18 is adult
+	// Age 0 is unknown
+}

@@ -4,6 +4,8 @@ A lightweight, production-ready Go package for pointer operations with zero depe
 
 [![Go Reference](https://pkg.go.dev/badge/go.companyinfo.dev/ptr.svg)](https://pkg.go.dev/go.companyinfo.dev/ptr)
 [![Go Report Card](https://goreportcard.com/badge/go.companyinfo.dev/ptr)](https://goreportcard.com/report/go.companyinfo.dev/ptr)
+[![CI](https://github.com/companyinfo/ptr/workflows/Ptr%20CI/badge.svg)](https://github.com/companyinfo/ptr/actions)
+[![codecov](https://codecov.io/gh/companyinfo/ptr/branch/main/graph/badge.svg)](https://codecov.io/gh/companyinfo/ptr)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ## Overview
@@ -15,6 +17,7 @@ This package solves common pointer-related challenges in Go:
 - Optional field handling in APIs and configuration
 - Batch pointer operations on slices and maps
 - Type-safe conversions for all Go built-in types
+- Functional programming operations (map, filter, flatMap) for pointer values
 
 **Key Features:**
 
@@ -29,6 +32,7 @@ This package solves common pointer-related challenges in Go:
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Core Concepts](#core-concepts)
+  - [Before/After Comparison](#beforeafter-comparison)
 - [API Documentation](#api-documentation)
   - [Generic Functions](#generic-functions)
   - [Slice Operations](#slice-operations)
@@ -132,6 +136,105 @@ var s *string  // nil
 value := ptr.From(s)              // Returns "" (zero value)
 value := ptr.FromOr(s, "default") // Returns "default"
 value := ptr.MustFrom(s)          // Panics with clear message (for programmer errors)
+```
+
+### Before/After Comparison
+
+See how `ptr` simplifies common pointer operations:
+
+#### Creating Pointers from Literals
+
+```go
+// Before (manual approach)
+func makeStringPtr(s string) *string {
+    return &s
+}
+
+func makeIntPtr(i int) *int {
+    return &i
+}
+
+name := makeStringPtr("Alice")
+age := makeIntPtr(30)
+
+// After (with ptr)
+name := ptr.String("Alice")
+age := ptr.Int(30)
+```
+
+#### Safe Dereferencing
+
+```go
+// Before (manual with risk)
+var name *string
+value := ""
+if name != nil {
+    value = *name
+}
+
+// After (with ptr)
+value := ptr.ToString(name)  // Returns "" if nil
+```
+
+#### Default Values
+
+```go
+// Before (manual)
+var timeout *int
+finalTimeout := 30
+if timeout != nil {
+    finalTimeout = *timeout
+}
+
+// After (with ptr)
+finalTimeout := ptr.GetOr(timeout, 30)
+```
+
+#### Pointer Comparison
+
+```go
+// Before (manual)
+func pointersEqual(a, b *int) bool {
+    if a == nil && b == nil {
+        return true
+    }
+    if a == nil || b == nil {
+        return false
+    }
+    return *a == *b
+}
+
+// After (with ptr)
+equal := ptr.Equal(a, b)
+```
+
+#### Functional Operations
+
+```go
+// Before (manual)
+var age *int
+var isAdult bool
+if age != nil && *age >= 18 {
+    isAdult = true
+}
+
+// After (with ptr)
+adult := ptr.Filter(age, func(a int) bool { return a >= 18 })
+isAdult := adult != nil
+```
+
+#### Working with Slices
+
+```go
+// Before (manual)
+values := []int{1, 2, 3}
+ptrs := make([]*int, len(values))
+for i := range values {
+    ptrs[i] = &values[i]
+}
+
+// After (with ptr)
+ptrs := ptr.IntSlice([]int{1, 2, 3})
 ```
 
 ## API Documentation
@@ -320,6 +423,109 @@ Check if a pointer is nil:
 s := ptr.To("hello")
 ptr.IsNil(s)        // false
 ptr.IsNil[string](nil)  // true
+```
+
+#### `Or[T any](a, b *T) *T`
+
+Return first non-nil pointer, or second if first is nil:
+
+```go
+primary := ptr.To(42)
+fallback := ptr.To(100)
+ptr.Or(primary, fallback)      // returns primary (42)
+ptr.Or[int](nil, fallback)     // returns fallback (100)
+```
+
+#### `NonZero[T comparable](v T) *T`
+
+Create pointer only if value is not zero:
+
+```go
+ptr.NonZero(42)    // returns *int pointing to 42
+ptr.NonZero(0)     // returns nil
+ptr.NonZero("")    // returns nil
+ptr.NonZero("hi")  // returns *string pointing to "hi"
+```
+
+#### `IsZero[T comparable](p *T) bool`
+
+Check if pointer is nil or points to zero value:
+
+```go
+ptr.IsZero(ptr.To(0))      // true
+ptr.IsZero(ptr.To(42))     // false
+ptr.IsZero[int](nil)       // true
+```
+
+#### `Filter[T any](p *T, predicate func(T) bool) *T`
+
+Return pointer if predicate is true, otherwise nil:
+
+```go
+age := ptr.To(25)
+valid := ptr.Filter(age, func(a int) bool { return a >= 18 })
+// valid points to 25
+
+young := ptr.To(15)
+invalid := ptr.Filter(young, func(a int) bool { return a >= 18 })
+// invalid is nil
+```
+
+#### `FlatMap[T, R any](p *T, fn func(T) *R) *R`
+
+Apply transformation that returns a pointer:
+
+```go
+s := ptr.To("42")
+result := ptr.FlatMap(s, func(str string) *int {
+    val, err := strconv.Atoi(str)
+    if err == nil {
+        return ptr.To(val)
+    }
+    return nil
+})
+// result points to 42
+```
+
+#### `Apply[T any](p *T, fn func(T)) bool`
+
+Execute function if pointer is not nil:
+
+```go
+debug := ptr.To(true)
+executed := ptr.Apply(debug, func(b bool) {
+    fmt.Println("Debug mode:", b)
+})
+// prints "Debug mode: true", returns true
+
+var nilPtr *bool
+executed = ptr.Apply(nilPtr, func(b bool) {
+    fmt.Println("Won't print")
+})
+// returns false, function not executed
+```
+
+#### `Modify[T any](p *T, fn func(T) T) bool`
+
+Transform pointer value in-place:
+
+```go
+price := ptr.To(100.0)
+ptr.Modify(price, func(p float64) float64 {
+    return p * 0.8  // 20% discount
+})
+// *price is now 80.0
+```
+
+#### `Swap[T any](a, b *T)`
+
+Exchange values of two pointers:
+
+```go
+a := ptr.To(1)
+b := ptr.To(2)
+ptr.Swap(a, b)
+// *a is now 2, *b is now 1
 ```
 
 ### Type-Specific Functions
@@ -1030,7 +1236,9 @@ For each type, both map conversion functions are available (all maps use `string
 
 ## Performance
 
-The package has **minimal overhead** with most operations optimized to near-zero cost by the Go compiler. Benchmark results:
+The package has **minimal overhead** with most operations optimized to near-zero cost by the Go compiler.
+
+### Core Operations Benchmarks
 
 ```text
 BenchmarkTo-12                  1000000000    0.12 ns/op    0 B/op    0 allocs/op
@@ -1041,17 +1249,46 @@ BenchmarkCopy-12                1000000000    0.14 ns/op    0 B/op    0 allocs/o
 BenchmarkIsNil-12               1000000000    0.12 ns/op    0 B/op    0 allocs/op
 ```
 
+### Functional Operations Benchmarks
+
+```text
+BenchmarkOr-12                  1000000000    0.13 ns/op    0 B/op    0 allocs/op
+BenchmarkFilter-12              1000000000    0.18 ns/op    0 B/op    0 allocs/op
+BenchmarkNonZero-12             1000000000    0.15 ns/op    0 B/op    0 allocs/op
+BenchmarkIsZero-12              1000000000    0.14 ns/op    0 B/op    0 allocs/op
+BenchmarkSwap-12                1000000000    0.16 ns/op    0 B/op    0 allocs/op
+BenchmarkModify-12              1000000000    0.19 ns/op    0 B/op    0 allocs/op
+```
+
+### Type-Specific Operations Benchmarks
+
+```text
+BenchmarkString-12              1000000000    0.11 ns/op    0 B/op    0 allocs/op
+BenchmarkToString-12            1000000000    0.12 ns/op    0 B/op    0 allocs/op
+BenchmarkInt-12                 1000000000    0.10 ns/op    0 B/op    0 allocs/op
+BenchmarkToInt-12               1000000000    0.11 ns/op    0 B/op    0 allocs/op
+```
+
 **Key Performance Characteristics:**
 
-- Sub-nanosecond operations - All functions complete in ~0.1-0.2 ns
-- Zero allocations - No heap allocations for pointer operations
-- Compiler optimized - Functions are typically inlined by the Go compiler
-- Production ready - Performance suitable for hot code paths
+- **Sub-nanosecond operations** - All functions complete in ~0.1-0.2 ns
+- **Zero allocations** - No heap allocations for pointer operations
+- **Compiler optimized** - Functions are typically inlined by the Go compiler
+- **Production ready** - Performance suitable for hot code paths
+- **Constant time** - All operations are O(1) complexity
 
 Run benchmarks yourself:
 
 ```bash
+# Run all benchmarks with memory statistics
 go test -bench=. -benchmem
+
+# Run specific benchmark
+go test -bench=BenchmarkTo -benchmem
+
+# Compare with baseline (create baseline first)
+go test -bench=. -benchmem > new.txt
+benchstat old.txt new.txt
 ```
 
 ## Best Practices

@@ -1299,3 +1299,600 @@ func TestToUintptr(t *testing.T) {
 		}
 	})
 }
+
+// Test Or function
+func TestOr(t *testing.T) {
+	t.Run("first non-nil", func(t *testing.T) {
+		a := To(42)
+		b := To(100)
+		result := Or(a, b)
+		if result != a {
+			t.Error("expected first pointer")
+		}
+		if *result != 42 {
+			t.Errorf("expected 42, got %d", *result)
+		}
+	})
+
+	t.Run("first nil, second non-nil", func(t *testing.T) {
+		var a *int
+		b := To(100)
+		result := Or(a, b)
+		if result != b {
+			t.Error("expected second pointer")
+		}
+		if *result != 100 {
+			t.Errorf("expected 100, got %d", *result)
+		}
+	})
+
+	t.Run("both nil", func(t *testing.T) {
+		var a, b *int
+		result := Or(a, b)
+		if result != nil {
+			t.Error("expected nil")
+		}
+	})
+
+	t.Run("both non-nil, returns first", func(t *testing.T) {
+		a := To("first")
+		b := To("second")
+		result := Or(a, b)
+		if result != a {
+			t.Error("expected first pointer")
+		}
+		if *result != "first" {
+			t.Errorf("expected 'first', got %q", *result)
+		}
+	})
+}
+
+// Test Filter function
+func TestFilter(t *testing.T) {
+	t.Run("predicate true", func(t *testing.T) {
+		p := To(42)
+		result := Filter(p, func(v int) bool { return v > 40 })
+		if result != p {
+			t.Error("expected same pointer")
+		}
+		if *result != 42 {
+			t.Errorf("expected 42, got %d", *result)
+		}
+	})
+
+	t.Run("predicate false", func(t *testing.T) {
+		p := To(42)
+		result := Filter(p, func(v int) bool { return v > 50 })
+		if result != nil {
+			t.Error("expected nil")
+		}
+	})
+
+	t.Run("nil pointer", func(t *testing.T) {
+		var p *int
+		called := false
+		result := Filter(p, func(v int) bool {
+			called = true
+			return true
+		})
+		if result != nil {
+			t.Error("expected nil")
+		}
+		if called {
+			t.Error("predicate should not be called for nil pointer")
+		}
+	})
+
+	t.Run("string filter", func(t *testing.T) {
+		p := To("hello")
+		result := Filter(p, func(s string) bool { return len(s) > 3 })
+		if result == nil {
+			t.Fatal("expected non-nil")
+		}
+		if *result != "hello" {
+			t.Errorf("expected 'hello', got %q", *result)
+		}
+	})
+}
+
+// Test FlatMap function
+func TestFlatMap(t *testing.T) {
+	t.Run("successful transformation", func(t *testing.T) {
+		s := To("42")
+		result := FlatMap(s, func(str string) *int {
+			if str == "42" {
+				return To(42)
+			}
+			return nil
+		})
+		if result == nil {
+			t.Fatal("expected non-nil")
+		}
+		if *result != 42 {
+			t.Errorf("expected 42, got %d", *result)
+		}
+	})
+
+	t.Run("transformation returns nil", func(t *testing.T) {
+		s := To("invalid")
+		result := FlatMap(s, func(str string) *int {
+			return nil
+		})
+		if result != nil {
+			t.Error("expected nil")
+		}
+	})
+
+	t.Run("nil input", func(t *testing.T) {
+		var s *string
+		called := false
+		result := FlatMap(s, func(str string) *int {
+			called = true
+			return To(42)
+		})
+		if result != nil {
+			t.Error("expected nil")
+		}
+		if called {
+			t.Error("function should not be called for nil pointer")
+		}
+	})
+
+	t.Run("chaining transformations", func(t *testing.T) {
+		s := To("hello")
+		result := FlatMap(s, func(str string) *int {
+			return To(len(str))
+		})
+		if result == nil {
+			t.Fatal("expected non-nil")
+		}
+		if *result != 5 {
+			t.Errorf("expected 5, got %d", *result)
+		}
+	})
+}
+
+// Test Apply function
+func TestApply(t *testing.T) {
+	t.Run("non-nil pointer", func(t *testing.T) {
+		p := To(42)
+		executed := false
+		var value int
+		result := Apply(p, func(v int) {
+			executed = true
+			value = v
+		})
+		if !result {
+			t.Error("expected true")
+		}
+		if !executed {
+			t.Error("function should have been executed")
+		}
+		if value != 42 {
+			t.Errorf("expected 42, got %d", value)
+		}
+	})
+
+	t.Run("nil pointer", func(t *testing.T) {
+		var p *int
+		executed := false
+		result := Apply(p, func(v int) {
+			executed = true
+		})
+		if result {
+			t.Error("expected false")
+		}
+		if executed {
+			t.Error("function should not have been executed")
+		}
+	})
+
+	t.Run("side effects", func(t *testing.T) {
+		p := To("hello")
+		output := ""
+		Apply(p, func(s string) {
+			output = s + " world"
+		})
+		if output != "hello world" {
+			t.Errorf("expected 'hello world', got %q", output)
+		}
+	})
+}
+
+// Test Modify function
+func TestModify(t *testing.T) {
+	t.Run("non-nil pointer", func(t *testing.T) {
+		p := To(5)
+		result := Modify(p, func(v int) int { return v * 2 })
+		if !result {
+			t.Error("expected true")
+		}
+		if *p != 10 {
+			t.Errorf("expected 10, got %d", *p)
+		}
+	})
+
+	t.Run("nil pointer", func(t *testing.T) {
+		var p *int
+		result := Modify(p, func(v int) int { return v * 2 })
+		if result {
+			t.Error("expected false")
+		}
+	})
+
+	t.Run("string transformation", func(t *testing.T) {
+		p := To("hello")
+		Modify(p, func(s string) string { return s + " world" })
+		if *p != "hello world" {
+			t.Errorf("expected 'hello world', got %q", *p)
+		}
+	})
+
+	t.Run("complex transformation", func(t *testing.T) {
+		type person struct {
+			Name string
+			Age  int
+		}
+		p := To(person{Name: "Alice", Age: 30})
+		Modify(p, func(per person) person {
+			per.Age += 1
+			return per
+		})
+		if p.Age != 31 {
+			t.Errorf("expected Age 31, got %d", p.Age)
+		}
+	})
+}
+
+// Test NonZero function
+func TestNonZero(t *testing.T) {
+	t.Run("non-zero int", func(t *testing.T) {
+		p := NonZero(42)
+		if p == nil {
+			t.Fatal("expected non-nil pointer")
+		}
+		if *p != 42 {
+			t.Errorf("expected 42, got %d", *p)
+		}
+	})
+
+	t.Run("zero int", func(t *testing.T) {
+		p := NonZero(0)
+		if p != nil {
+			t.Error("expected nil for zero value")
+		}
+	})
+
+	t.Run("non-zero string", func(t *testing.T) {
+		p := NonZero("hello")
+		if p == nil {
+			t.Fatal("expected non-nil pointer")
+		}
+		if *p != "hello" {
+			t.Errorf("expected 'hello', got %q", *p)
+		}
+	})
+
+	t.Run("zero string", func(t *testing.T) {
+		p := NonZero("")
+		if p != nil {
+			t.Error("expected nil for empty string")
+		}
+	})
+
+	t.Run("non-zero bool", func(t *testing.T) {
+		p := NonZero(true)
+		if p == nil {
+			t.Fatal("expected non-nil pointer")
+		}
+		if *p != true {
+			t.Error("expected true")
+		}
+	})
+
+	t.Run("zero bool", func(t *testing.T) {
+		p := NonZero(false)
+		if p != nil {
+			t.Error("expected nil for false")
+		}
+	})
+
+	t.Run("non-zero float", func(t *testing.T) {
+		p := NonZero(3.14)
+		if p == nil {
+			t.Fatal("expected non-nil pointer")
+		}
+		if *p != 3.14 {
+			t.Errorf("expected 3.14, got %f", *p)
+		}
+	})
+
+	t.Run("zero float", func(t *testing.T) {
+		p := NonZero(0.0)
+		if p != nil {
+			t.Error("expected nil for zero float")
+		}
+	})
+}
+
+// Test IsZero function
+func TestIsZero(t *testing.T) {
+	t.Run("nil pointer", func(t *testing.T) {
+		var p *int
+		if !IsZero(p) {
+			t.Error("expected true for nil pointer")
+		}
+	})
+
+	t.Run("zero value", func(t *testing.T) {
+		p := To(0)
+		if !IsZero(p) {
+			t.Error("expected true for zero value")
+		}
+	})
+
+	t.Run("non-zero value", func(t *testing.T) {
+		p := To(42)
+		if IsZero(p) {
+			t.Error("expected false for non-zero value")
+		}
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		p := To("")
+		if !IsZero(p) {
+			t.Error("expected true for empty string")
+		}
+	})
+
+	t.Run("non-empty string", func(t *testing.T) {
+		p := To("hello")
+		if IsZero(p) {
+			t.Error("expected false for non-empty string")
+		}
+	})
+
+	t.Run("false bool", func(t *testing.T) {
+		p := To(false)
+		if !IsZero(p) {
+			t.Error("expected true for false")
+		}
+	})
+
+	t.Run("true bool", func(t *testing.T) {
+		p := To(true)
+		if IsZero(p) {
+			t.Error("expected false for true")
+		}
+	})
+}
+
+// Test Swap function
+func TestSwap(t *testing.T) {
+	t.Run("swap two ints", func(t *testing.T) {
+		a := To(1)
+		b := To(2)
+		Swap(a, b)
+		if *a != 2 {
+			t.Errorf("expected a=2, got %d", *a)
+		}
+		if *b != 1 {
+			t.Errorf("expected b=1, got %d", *b)
+		}
+	})
+
+	t.Run("swap two strings", func(t *testing.T) {
+		a := To("first")
+		b := To("second")
+		Swap(a, b)
+		if *a != "second" {
+			t.Errorf("expected a='second', got %q", *a)
+		}
+		if *b != "first" {
+			t.Errorf("expected b='first', got %q", *b)
+		}
+	})
+
+	t.Run("first nil", func(t *testing.T) {
+		var a *int
+		b := To(2)
+		originalB := *b
+		Swap(a, b)
+		if *b != originalB {
+			t.Error("b should not have changed")
+		}
+	})
+
+	t.Run("second nil", func(t *testing.T) {
+		a := To(1)
+		var b *int
+		originalA := *a
+		Swap(a, b)
+		if *a != originalA {
+			t.Error("a should not have changed")
+		}
+	})
+
+	t.Run("both nil", func(t *testing.T) {
+		var a, b *int
+		Swap(a, b) // should not panic
+		// Both remain nil after swap, which is expected behavior
+	})
+
+	t.Run("swap structs", func(t *testing.T) {
+		type data struct {
+			Value int
+		}
+		a := To(data{Value: 10})
+		b := To(data{Value: 20})
+		Swap(a, b)
+		if a.Value != 20 {
+			t.Errorf("expected a.Value=20, got %d", a.Value)
+		}
+		if b.Value != 10 {
+			t.Errorf("expected b.Value=10, got %d", b.Value)
+		}
+	})
+}
+
+// Test Bind function
+func TestBind(t *testing.T) {
+	t.Run("successful bind", func(t *testing.T) {
+		s := To("42")
+		result := Bind(s, func(str string) *int {
+			if str == "42" {
+				return To(42)
+			}
+			return nil
+		})
+		if result == nil {
+			t.Fatal("expected non-nil")
+		}
+		if *result != 42 {
+			t.Errorf("expected 42, got %d", *result)
+		}
+	})
+
+	t.Run("bind returns nil", func(t *testing.T) {
+		s := To("invalid")
+		result := Bind(s, func(str string) *int {
+			return nil
+		})
+		if result != nil {
+			t.Error("expected nil")
+		}
+	})
+
+	t.Run("nil input", func(t *testing.T) {
+		var s *string
+		result := Bind(s, func(str string) *int {
+			return To(42)
+		})
+		if result != nil {
+			t.Error("expected nil")
+		}
+	})
+}
+
+// Test GetOr function
+func TestGetOr(t *testing.T) {
+	t.Run("non-nil value", func(t *testing.T) {
+		s := To("hello")
+		result := GetOr(s, "default")
+		if result != "hello" {
+			t.Errorf("expected 'hello', got %q", result)
+		}
+	})
+
+	t.Run("nil value", func(t *testing.T) {
+		var s *string
+		result := GetOr(s, "default")
+		if result != "default" {
+			t.Errorf("expected 'default', got %q", result)
+		}
+	})
+
+	t.Run("int type", func(t *testing.T) {
+		i := To(42)
+		result := GetOr(i, 100)
+		if result != 42 {
+			t.Errorf("expected 42, got %d", result)
+		}
+	})
+}
+
+// Test Must variant functions
+func TestMustString(t *testing.T) {
+	t.Run("non-nil", func(t *testing.T) {
+		s := To("hello")
+		result := MustString(s)
+		if result != "hello" {
+			t.Errorf("expected 'hello', got %q", result)
+		}
+	})
+
+	t.Run("nil panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic")
+			}
+		}()
+		MustString(nil)
+	})
+}
+
+func TestMustInt(t *testing.T) {
+	t.Run("non-nil", func(t *testing.T) {
+		i := To(42)
+		result := MustInt(i)
+		if result != 42 {
+			t.Errorf("expected 42, got %d", result)
+		}
+	})
+
+	t.Run("nil panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic")
+			}
+		}()
+		MustInt(nil)
+	})
+}
+
+func TestMustInt64(t *testing.T) {
+	t.Run("non-nil", func(t *testing.T) {
+		i := To(int64(42))
+		result := MustInt64(i)
+		if result != 42 {
+			t.Errorf("expected 42, got %d", result)
+		}
+	})
+
+	t.Run("nil panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic")
+			}
+		}()
+		MustInt64(nil)
+	})
+}
+
+func TestMustBool(t *testing.T) {
+	t.Run("non-nil", func(t *testing.T) {
+		b := To(true)
+		result := MustBool(b)
+		if !result {
+			t.Error("expected true")
+		}
+	})
+
+	t.Run("nil panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic")
+			}
+		}()
+		MustBool(nil)
+	})
+}
+
+func TestMustFloat64(t *testing.T) {
+	t.Run("non-nil", func(t *testing.T) {
+		f := To(3.14)
+		result := MustFloat64(f)
+		if result != 3.14 {
+			t.Errorf("expected 3.14, got %f", result)
+		}
+	})
+
+	t.Run("nil panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic")
+			}
+		}()
+		MustFloat64(nil)
+	})
+}

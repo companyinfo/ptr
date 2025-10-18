@@ -360,3 +360,150 @@ func BenchmarkToUintptr(b *testing.B) {
 		_ = ToUintptr(p)
 	}
 }
+
+// Benchmark new functional programming functions
+
+func BenchmarkOr(b *testing.B) {
+	a := To(42)
+	fallback := To(100)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Or(a, fallback)
+	}
+}
+
+func BenchmarkOrNil(b *testing.B) {
+	fallback := To(100)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Or[int](nil, fallback)
+	}
+}
+
+func BenchmarkFilter(b *testing.B) {
+	p := To(42)
+	predicate := func(v int) bool { return v > 40 }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Filter(p, predicate)
+	}
+}
+
+func BenchmarkFilterNil(b *testing.B) {
+	predicate := func(v int) bool { return v > 40 }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Filter[int](nil, predicate)
+	}
+}
+
+func BenchmarkFlatMap(b *testing.B) {
+	p := To(42)
+	transform := func(v int) *string {
+		s := strings.Repeat("x", v)
+		return &s
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = FlatMap(p, transform)
+	}
+}
+
+func BenchmarkFlatMapNil(b *testing.B) {
+	transform := func(v int) *string {
+		s := "result"
+		return &s
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = FlatMap[int, string](nil, transform)
+	}
+}
+
+func BenchmarkApply(b *testing.B) {
+	p := To(42)
+	fn := func(v int) {}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Apply(p, fn)
+	}
+}
+
+func BenchmarkApplyNil(b *testing.B) {
+	fn := func(v int) {}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Apply[int](nil, fn)
+	}
+}
+
+func BenchmarkModify(b *testing.B) {
+	p := To(100)
+	transform := func(v int) int { return v * 2 }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Modify(p, transform)
+	}
+}
+
+func BenchmarkModifyNil(b *testing.B) {
+	transform := func(v int) int { return v * 2 }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Modify[int](nil, transform)
+	}
+}
+
+func BenchmarkNonZero(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NonZero(42)
+	}
+}
+
+func BenchmarkNonZeroZero(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NonZero(0)
+	}
+}
+
+func BenchmarkIsZero(b *testing.B) {
+	p := To(42)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = IsZero(p)
+	}
+}
+
+func BenchmarkIsZeroNil(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = IsZero[int](nil)
+	}
+}
+
+func BenchmarkIsZeroZeroValue(b *testing.B) {
+	p := To(0)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = IsZero(p)
+	}
+}
+
+func BenchmarkSwap(b *testing.B) {
+	a := To(1)
+	bVal := To(2)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Swap(a, bVal)
+	}
+}
+
+func BenchmarkSwapNil(b *testing.B) {
+	bVal := To(2)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Swap[int](nil, bVal)
+	}
+}

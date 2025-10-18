@@ -180,6 +180,163 @@ func Map[T, R any](p *T, fn func(T) R) *R {
 	return &result
 }
 
+// Or returns the first pointer if not nil, otherwise returns the second.
+// More ergonomic than Coalesce for the common two-pointer case.
+//
+// Example:
+//
+//	primary := ptr.To(42)
+//	fallback := ptr.To(100)
+//	v := ptr.Or(primary, fallback)  // returns primary
+//	v = ptr.Or[int](nil, fallback)  // returns fallback
+func Or[T any](a, b *T) *T {
+	if a != nil {
+		return a
+	}
+	return b
+}
+
+// Filter returns the pointer if the predicate is true, otherwise returns nil.
+// If the pointer is nil, returns nil without calling the predicate.
+//
+// Example:
+//
+//	p := ptr.To(42)
+//	result := ptr.Filter(p, func(v int) bool { return v > 40 })  // returns p
+//	result = ptr.Filter(p, func(v int) bool { return v > 50 })   // returns nil
+func Filter[T any](p *T, predicate func(T) bool) *T {
+	if p == nil || !predicate(*p) {
+		return nil
+	}
+	return p
+}
+
+// FlatMap applies a transformation function that returns a pointer.
+// Returns nil if the input pointer is nil or if the function returns nil.
+// Useful for chaining operations that might return nil.
+//
+// Example:
+//
+//	s := ptr.To("42")
+//	result := ptr.FlatMap(s, func(s string) *int {
+//	    if v, err := strconv.Atoi(s); err == nil {
+//	        return ptr.To(v)
+//	    }
+//	    return nil
+//	})
+func FlatMap[T, R any](p *T, fn func(T) *R) *R {
+	if p == nil {
+		return nil
+	}
+	return fn(*p)
+}
+
+// Apply executes the function if the pointer is not nil.
+// Returns true if the function was executed, false if pointer was nil.
+//
+// Example:
+//
+//	p := ptr.To("hello")
+//	executed := ptr.Apply(p, func(s string) {
+//	    fmt.Println(s)
+//	})  // prints "hello", returns true
+func Apply[T any](p *T, fn func(T)) bool {
+	if p == nil {
+		return false
+	}
+	fn(*p)
+	return true
+}
+
+// Modify applies a transformation function to the pointer value in place.
+// Returns true if modified, false if pointer was nil.
+//
+// Example:
+//
+//	p := ptr.To(5)
+//	ptr.Modify(p, func(v int) int { return v * 2 })  // *p is now 10
+func Modify[T any](p *T, fn func(T) T) bool {
+	if p == nil {
+		return false
+	}
+	*p = fn(*p)
+	return true
+}
+
+// NonZero returns a pointer to the value if it's not the zero value,
+// otherwise returns nil. Useful for omitting zero values in JSON/APIs.
+//
+// Example:
+//
+//	p := ptr.NonZero(42)    // returns pointer to 42
+//	p = ptr.NonZero(0)      // returns nil
+//	p = ptr.NonZero("")     // returns nil
+func NonZero[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
+}
+
+// IsZero returns true if the pointer is nil or points to a zero value.
+//
+// Example:
+//
+//	ptr.IsZero(ptr.To(0))      // true
+//	ptr.IsZero(ptr.To(42))     // false
+//	ptr.IsZero[int](nil)       // true
+func IsZero[T comparable](p *T) bool {
+	if p == nil {
+		return true
+	}
+	var zero T
+	return *p == zero
+}
+
+// Swap exchanges the values of two pointers.
+// Does nothing if either pointer is nil.
+//
+// Example:
+//
+//	a := ptr.To(1)
+//	b := ptr.To(2)
+//	ptr.Swap(a, b)  // *a is now 2, *b is now 1
+func Swap[T any](a, b *T) {
+	if a == nil || b == nil {
+		return
+	}
+	*a, *b = *b, *a
+}
+
+// Bind applies a function that transforms a pointer to another pointer.
+// This is an alias for FlatMap, provided for developers familiar with monadic bind operations.
+// Returns nil if the input pointer is nil or if the function returns nil.
+//
+// Example:
+//
+//	parseToInt := func(s string) *int {
+//	    if v, err := strconv.Atoi(s); err == nil {
+//	        return ptr.To(v)
+//	    }
+//	    return nil
+//	}
+//	result := ptr.Bind(ptr.To("42"), parseToInt)  // returns pointer to 42
+func Bind[T, R any](p *T, fn func(T) *R) *R {
+	return FlatMap(p, fn)
+}
+
+// GetOr returns the value if pointer is non-nil, otherwise returns the default value.
+// This is an alias for FromOr with a more intuitive name for configuration use cases.
+//
+// Example:
+//
+//	timeout := ptr.GetOr(config.Timeout, 30*time.Second)
+//	maxRetries := ptr.GetOr(config.MaxRetries, 3)
+func GetOr[T any](p *T, defaultValue T) T {
+	return FromOr(p, defaultValue)
+}
+
 // ToSlice converts a slice of values to a slice of pointers.
 // Returns nil if the input slice is nil.
 //
@@ -446,4 +603,34 @@ func Uintptr(v uintptr) *uintptr {
 // Returns 0 if the pointer is nil.
 func ToUintptr(p *uintptr) uintptr {
 	return From(p)
+}
+
+// MustString dereferences a string pointer and returns its value.
+// Panics if the pointer is nil. Use this only when nil is a programming error.
+func MustString(p *string) string {
+	return MustFrom(p)
+}
+
+// MustInt dereferences an int pointer and returns its value.
+// Panics if the pointer is nil. Use this only when nil is a programming error.
+func MustInt(p *int) int {
+	return MustFrom(p)
+}
+
+// MustInt64 dereferences an int64 pointer and returns its value.
+// Panics if the pointer is nil. Use this only when nil is a programming error.
+func MustInt64(p *int64) int64 {
+	return MustFrom(p)
+}
+
+// MustBool dereferences a bool pointer and returns its value.
+// Panics if the pointer is nil. Use this only when nil is a programming error.
+func MustBool(p *bool) bool {
+	return MustFrom(p)
+}
+
+// MustFloat64 dereferences a float64 pointer and returns its value.
+// Panics if the pointer is nil. Use this only when nil is a programming error.
+func MustFloat64(p *float64) float64 {
+	return MustFrom(p)
 }
